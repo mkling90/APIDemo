@@ -17,14 +17,28 @@ namespace Library.API.Controllers
         public AuthorsController(ILibraryRepository libraryRepository)
         {
             _libraryRepository = libraryRepository;
-        }
+        }         
 
         [HttpGet()]
         public IActionResult GetAuthors()
         {
             var authorsFromRepo = _libraryRepository.GetAuthors();
             var authors = authorsFromRepo.ConvertToAuthorDtoList();
-            return new JsonResult(authors);
+            return Ok(authors);
+        }
+
+        [HttpGet("{id}")]
+        public IActionResult GetAuthor(Guid id)
+        {
+            //No need for try/catch with global exception handling in configure startup
+            var authorFromRepo = _libraryRepository.GetAuthor(id);
+            if (authorFromRepo == null)
+            {
+                return NotFound();
+            }
+            var author = authorFromRepo.ConvertToAuthorDto();
+            return Ok(author);
+
         }
     }
 }

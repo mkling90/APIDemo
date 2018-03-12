@@ -49,7 +49,16 @@ namespace Library.API
             }
             else
             {
-                app.UseExceptionHandler();
+                //Global exception handling
+                app.UseExceptionHandler( appBuilder =>
+                {
+                    // add code to handle the exception
+                    appBuilder.Run(async context =>
+                    {
+                        context.Response.StatusCode = 500;
+                        await context.Response.WriteAsync("Fault happened, try later.");
+                    });  
+                });
             }
 
             libraryContext.EnsureSeedDataForContext();
