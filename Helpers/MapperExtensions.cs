@@ -32,6 +32,26 @@ namespace Library.API.Helpers
             return authorDtoList;
         }
 
+        public static BookDto ConvertToBookDto(this Book inputBook)
+        {
+            BookDto bookDto = new BookDto()
+            {
+                Id = inputBook.Id,
+                Title = inputBook.Title,
+                Description = inputBook.Description,
+                AuthorId = inputBook.AuthorId
+            };
+            return bookDto;
+        }
 
+        public static IEnumerable<BookDto> ConvertToBookDtoList(this IEnumerable<Book> inputBookList)
+        {
+            List<BookDto> bookDtoList = new List<BookDto>();
+            foreach (Book inputBook in inputBookList)
+            {
+                bookDtoList.Add(inputBook.ConvertToBookDto());
+            }
+            return bookDtoList;
+        }
     }
 }
