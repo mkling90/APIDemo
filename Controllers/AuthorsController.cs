@@ -27,7 +27,7 @@ namespace Library.API.Controllers
             return Ok(authors);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name = "GetAuthor")]
         public IActionResult GetAuthor(Guid id)
         {
             //No need for try/catch with global exception handling in configure startup
@@ -39,6 +39,24 @@ namespace Library.API.Controllers
             var author = authorFromRepo.ConvertToAuthorDto();
             return Ok(author);
 
+        }
+
+        [HttpPost()]
+        public IActionResult CreateAuthor([FromBody] AuthorForCreationDto author)
+        {
+            if (author == null)
+                return BadRequest();
+
+            var authorEntity = author.ConvertToAuthorEntity();
+            _libraryRepository.AddAuthor(authorEntity);
+            if(!_libraryRepository.Save())
+            {
+                throw new Exception();  //with global exception handling, we can throw exception
+                //return StatusCode(500, "problem");
+            }
+            var authorToReturn = authorEntity.ConvertToAuthorDto();
+            //need a name on the get method call to use it here
+            return CreatedAtRoute("GetAuthor", new { id = authorToReturn.Id }, authorToReturn); 
         }
     }
 }

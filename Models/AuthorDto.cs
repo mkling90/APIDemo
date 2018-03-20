@@ -15,4 +15,15 @@ namespace Library.API.Models
 
         public String Genre { get; set; }
     }
+
+    public class AuthorForCreationDto
+    {
+        public String FirstName { get; set; }
+
+        public String LastName { get; set; }
+
+        public DateTimeOffset DateOfBirth { get; set; }
+
+        public String Genre { get; set; }
+    }
 }
