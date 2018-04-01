@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Library.API.Models;
 
 namespace Library.API.Controllers
 {
@@ -30,7 +31,7 @@ namespace Library.API.Controllers
             return Ok(booksForAuthor);
         }
 
-        [HttpGet("{id}")]
+        [HttpGet("{id}", Name ="GetBook")]
         public IActionResult GetBookForAuthor(Guid authorId, Guid id)
         {
             if (!_libraryRepository.AuthorExists(authorId))
@@ -41,6 +42,20 @@ namespace Library.API.Controllers
                 return NotFound();
             var retBook = book.ConvertToBookDto();
             return Ok(retBook);
+        }
+
+        [HttpPost()]
+        public IActionResult CreateBookForAuthor(Guid authorId, [FromBody] BookForCreationDto book)
+        {
+            if (book == null)
+                return BadRequest();
+            if (!_libraryRepository.AuthorExists(authorId))
+                return NotFound();
+            var bookEntity = book.ConvertToBookEntity();
+            _libraryRepository.AddBookForAuthor(authorId, bookEntity);
+            _libraryRepository.Save();
+            var bookToReturn = bookEntity.ConvertToBookDto();
+            return CreatedAtRoute("GetBook", new {authorId = bookToReturn.AuthorId, id = bookToReturn.Id }, bookToReturn);
         }
     }
 }

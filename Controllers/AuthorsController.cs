@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace Library.API.Controllers
 {
@@ -57,6 +58,15 @@ namespace Library.API.Controllers
             var authorToReturn = authorEntity.ConvertToAuthorDto();
             //need a name on the get method call to use it here
             return CreatedAtRoute("GetAuthor", new { id = authorToReturn.Id }, authorToReturn); 
+        }
+
+        [HttpPost("{id}")]
+        public IActionResult BlockAuthorCreation(Guid id)
+        {
+            //Post to this URI should not create a resource, but if the guid exists we should return a conflict
+            if (_libraryRepository.AuthorExists(id))
+                return new StatusCodeResult(StatusCodes.Status409Conflict);
+            else return NotFound();
         }
     }
 }

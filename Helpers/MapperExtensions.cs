@@ -31,7 +31,21 @@ namespace Library.API.Helpers
                 DateOfBirth = inputAuthor.DateOfBirth,
                 Genre = inputAuthor.Genre
             };
+            if(inputAuthor.Books != null)
+            {
+                author.Books = inputAuthor.Books.ConvertToBookEntityList();
+            }
             return author;
+        }
+
+        public static IEnumerable<Author> ConvertToAuthorList(this IEnumerable<AuthorForCreationDto> inputAuthorDtoList)
+        {
+            List<Author> authorList = new List<Author>();
+            foreach(AuthorForCreationDto authorDto in inputAuthorDtoList)
+            {
+                authorList.Add(authorDto.ConvertToAuthorEntity());
+            }
+            return authorList;
         }
 
         public static IEnumerable<AuthorDto> ConvertToAuthorDtoList(this IEnumerable<Author> inputAuthorList)
@@ -56,6 +70,15 @@ namespace Library.API.Helpers
             return bookDto;
         }
 
+        public static Book ConvertToBookEntity(this BookForCreationDto inputBook)
+        {
+            Book bookEntity = new Book()
+            {
+                Title = inputBook.Title,
+                Description = inputBook.Description
+            };
+            return bookEntity;
+        }
         public static IEnumerable<BookDto> ConvertToBookDtoList(this IEnumerable<Book> inputBookList)
         {
             List<BookDto> bookDtoList = new List<BookDto>();
@@ -64,6 +87,16 @@ namespace Library.API.Helpers
                 bookDtoList.Add(inputBook.ConvertToBookDto());
             }
             return bookDtoList;
+        }
+
+        public static ICollection<Book> ConvertToBookEntityList(this ICollection<BookForCreationDto> inputBookList)
+        {
+            List<Book> bookList = new List<Book>();
+            foreach (BookForCreationDto inputBook in inputBookList)
+            {
+                bookList.Add(inputBook.ConvertToBookEntity());
+            }
+            return bookList;
         }
     }
 }

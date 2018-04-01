@@ -25,5 +25,8 @@ namespace Library.API.Models
         public DateTimeOffset DateOfBirth { get; set; }
 
         public String Genre { get; set; }
+
+        public ICollection<BookForCreationDto> Books { get; set; }
+            = new List<BookForCreationDto>();
     }
 }
