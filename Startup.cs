@@ -12,6 +12,8 @@ using Library.API.Services;
 using Library.API.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Diagnostics;
+using NLog.Extensions.Logging;
 
 namespace Library.API
 {
@@ -33,6 +35,7 @@ namespace Library.API
             {
                 setupAction.ReturnHttpNotAcceptable = true;
                 setupAction.OutputFormatters.Add(new XmlDataContractSerializerOutputFormatter());
+                setupAction.InputFormatters.Add(new XmlDataContractSerializerInputFormatter());
             });
 
             // register the DbContext on the container, getting the connection string from
@@ -48,7 +51,12 @@ namespace Library.API
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env, 
             ILoggerFactory loggerFactory, LibraryContext libraryContext)
-        {           
+        {
+            //use built-in logger factory
+            // loggerFactory.AddConsole(); <- not needed in core 2
+            //loggerFactory.AddProvider(new NLog.Extensions.Logging.NLogLoggerProvider());
+            //loggerFactory.AddNLog(); <- changes to adding into the BuildWebHost method
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -61,6 +69,12 @@ namespace Library.API
                     // add code to handle the exception
                     appBuilder.Run(async context =>
                     {
+                        var exceptionHandlerFeature = context.Features.Get<IExceptionHandlerFeature>();
+                        if(exceptionHandlerFeature != null)
+                        {
+                            var logger = loggerFactory.CreateLogger("Global exception logger");
+                            logger.LogError(500 ,exceptionHandlerFeature.Error, exceptionHandlerFeature.Error.Message);
+                        }
                         context.Response.StatusCode = 500;
                         await context.Response.WriteAsync("Fault happened, try later.");
                     });  

@@ -51,5 +51,12 @@ namespace Library.API.Controllers
             var authorsToReturn = authorEntities.ConvertToAuthorDtoList();
             return Ok(authorsToReturn);
         }
+
+        [HttpDelete()]
+        public IActionResult DeleteAuthors()
+        {
+            //rarely implemented because it can be very destructive
+            return NoContent();
+        }
     }
 }

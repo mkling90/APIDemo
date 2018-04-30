@@ -9,7 +9,7 @@ namespace Library.API.Helpers
 {
     public static class MapperExtensions
     {
-
+        #region Author Mappings
         public static AuthorDto ConvertToAuthorDto(this Author inputAuthor)
         {
             AuthorDto authorDto = new AuthorDto()
@@ -58,6 +58,9 @@ namespace Library.API.Helpers
             return authorDtoList;
         }
 
+        #endregion
+
+        #region Book Mappings
         public static BookDto ConvertToBookDto(this Book inputBook)
         {
             BookDto bookDto = new BookDto()
@@ -66,6 +69,16 @@ namespace Library.API.Helpers
                 Title = inputBook.Title,
                 Description = inputBook.Description,
                 AuthorId = inputBook.AuthorId
+            };
+            return bookDto;
+        }
+
+        public static BookForUpdateDto ConvertToBookForUpdateDto(this Book inputBook)
+        {
+            BookForUpdateDto bookDto = new BookForUpdateDto()
+            {
+                Title = inputBook.Title,
+                Description = inputBook.Description
             };
             return bookDto;
         }
@@ -79,6 +92,22 @@ namespace Library.API.Helpers
             };
             return bookEntity;
         }
+        public static Book ConvertToBookEntity(this BookForUpdateDto inputBook)
+        {
+            Book bookEntity = new Book()
+            {
+                Title = inputBook.Title,
+                Description = inputBook.Description
+            };
+            return bookEntity;
+        }
+
+        public static void UpdateBookEntity(this Book existingBook, BookForUpdateDto updatedBook)
+        {
+            existingBook.Title = updatedBook.Title;
+            existingBook.Description = updatedBook.Description;
+        }
+
         public static IEnumerable<BookDto> ConvertToBookDtoList(this IEnumerable<Book> inputBookList)
         {
             List<BookDto> bookDtoList = new List<BookDto>();
@@ -98,5 +127,7 @@ namespace Library.API.Helpers
             }
             return bookList;
         }
+
+        #endregion
     }
 }
