@@ -9,6 +9,10 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Library.API.Controllers
 {
+    //Best practice is to always implement paging on collections to avoid performance issues
+    // Paging should be the default, even if not requested by client
+    // parameters passed through query string
+
     [Route("api/authorcollections")]
     public class AuthorCollectionsController : Controller
     {
