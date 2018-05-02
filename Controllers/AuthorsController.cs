@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
+using Library.API.Entities;
 
 namespace Library.API.Controllers
 {
@@ -14,22 +15,36 @@ namespace Library.API.Controllers
     // Paging should be the default, even if not requested by client
     // parameters passed through query string
 
+    //Additional options:  expanding child resources, complex filters - don't need to implement options unless needed though
 
     [Route("api/authors")]
     public class AuthorsController : Controller
     {
         private ILibraryRepository _libraryRepository;
         private IUrlHelper _urlHelper;
+        private IPropertyMappingService _propertyMappingService;
+        private ITypeHelperService _typeHelperService;
 
-        public AuthorsController(ILibraryRepository libraryRepository, IUrlHelper urlHelper)
+        public AuthorsController(ILibraryRepository libraryRepository, IUrlHelper urlHelper, 
+                IPropertyMappingService propertyMappingService,
+                ITypeHelperService typeHelperService)
         {
             _libraryRepository = libraryRepository;
             _urlHelper = urlHelper;
+            _propertyMappingService = propertyMappingService;
+            _typeHelperService = typeHelperService;
         }         
 
         [HttpGet(Name = "GetAuthors")]
         public IActionResult GetAuthors(AuthorsResourceParameters authorsResourceParameters)  //will look for properties within the class to map to
         {
+            //validate order by mappings
+            if (!_propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>(authorsResourceParameters.OrderBy))
+                return BadRequest();
+
+            if (!_typeHelperService.TypeHasProperties<AuthorDto>(authorsResourceParameters.Fields))
+                return BadRequest();
+
             //need to return metadata for pagination as well
             // should not be in the body, or the response body will not match the accept header and will break REST
             //when requesting application/json, paging metadata isn't part of resource representation
@@ -59,12 +74,19 @@ namespace Library.API.Controllers
                 Newtonsoft.Json.JsonConvert.SerializeObject(paginationMetadata));
 
             var authors = authorsFromRepo.ConvertToAuthorDtoList();
-            return Ok(authors);
+            //return Ok(authors);
+            //add data shaping to avoid unnecessary fields
+            return Ok(authors.ShapeData(authorsResourceParameters.Fields));
         }
 
         [HttpGet("{id}", Name = "GetAuthor")]
-        public IActionResult GetAuthor(Guid id)
+        public IActionResult GetAuthor(Guid id, [FromQuery]string fields)  //don't need the full parameter object for only one query value
         {
+            // Note -> if allowing data shaping without HATEOS, you could violate REST if user can omit the uri
+            //validate fields
+            if (!_typeHelperService.TypeHasProperties<AuthorDto>(fields))
+                return BadRequest();
+
             //No need for try/catch with global exception handling in configure startup
             var authorFromRepo = _libraryRepository.GetAuthor(id);
             if (authorFromRepo == null)
@@ -72,7 +94,8 @@ namespace Library.API.Controllers
                 return NotFound();
             }
             var author = authorFromRepo.ConvertToAuthorDto();
-            return Ok(author);
+            //return Ok(author);
+            return Ok(author.ShapeData(fields));
 
         }
 
@@ -126,6 +149,8 @@ namespace Library.API.Controllers
                     return _urlHelper.Link("GetAuthors",
                       new
                       {
+                          fields = authorsResourceParameters.Fields,
+                          orderBy = authorsResourceParameters.OrderBy,
                           searchQuery = authorsResourceParameters.SearchQuery,
                           genre = authorsResourceParameters.Genre,
                           pageNumber = authorsResourceParameters.PageNumber - 1,
@@ -135,7 +160,9 @@ namespace Library.API.Controllers
                     return _urlHelper.Link("GetAuthors",
                       new
                       {
-                         searchQuery = authorsResourceParameters.SearchQuery,
+                          fields = authorsResourceParameters.Fields,
+                          orderBy = authorsResourceParameters.OrderBy,
+                          searchQuery = authorsResourceParameters.SearchQuery,
                           genre = authorsResourceParameters.Genre,
                           pageNumber = authorsResourceParameters.PageNumber + 1,
                           pageSize = authorsResourceParameters.PageSize
@@ -145,6 +172,8 @@ namespace Library.API.Controllers
                     return _urlHelper.Link("GetAuthors",
                     new
                     {
+                        fields = authorsResourceParameters.Fields,
+                        orderBy = authorsResourceParameters.OrderBy,
                         searchQuery = authorsResourceParameters.SearchQuery,
                         genre = authorsResourceParameters.Genre,
                         pageNumber = authorsResourceParameters.PageNumber,

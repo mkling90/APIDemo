@@ -24,5 +24,8 @@ namespace Library.API.Helpers
         public string Genre { get; set; }
 
         public string SearchQuery { get; set; }
+        public string OrderBy { get; set; } = "Name";  //default to a sort by name
+
+        public string Fields { get; set; }
     }
 }

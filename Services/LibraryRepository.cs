@@ -1,5 +1,6 @@
 ﻿using Library.API.Entities;
 using Library.API.Helpers;
+using Library.API.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +10,12 @@ namespace Library.API.Services
     public class LibraryRepository : ILibraryRepository
     {
         private LibraryContext _context;
+        private IPropertyMappingService _propertyMappingService;
 
-        public LibraryRepository(LibraryContext context)
+        public LibraryRepository(LibraryContext context, IPropertyMappingService propertyMappingService)
         {
             _context = context;
+            _propertyMappingService = propertyMappingService;
         }
 
         public void AddAuthor(Author author)
@@ -68,12 +71,21 @@ namespace Library.API.Services
         //public IEnumerable<Author> GetAuthors(AuthorsResourceParameters authorsResourceParameters)
         public PagedList<Author> GetAuthors(AuthorsResourceParameters authorsResourceParameters)
         {
+            //need to add the system.linq.dynamic.core to be able to convert the specific orderby into a string search
+            /*
             var collectionBeforePaging = _context.Authors
                 .OrderBy(a => a.FirstName)
                 .ThenBy(a => a.LastName).AsQueryable();  //add the as queryable so the filtering clause works
+                */
+            //build extension method to accept sorting, with mapping service for resource mapping
+            var collectionBeforePaging =
+                _context.Authors.ApplySort(
+                    authorsResourceParameters.OrderBy, 
+                    _propertyMappingService.GetPropertyMapping<AuthorDto, Author>()
+                );
 
             //For filtering..
-            if(!string.IsNullOrEmpty(authorsResourceParameters.Genre))
+            if (!string.IsNullOrEmpty(authorsResourceParameters.Genre))
             {
                 //trim and ignore case
                 var genreForWhereClause = authorsResourceParameters.Genre.Trim().ToLowerInvariant();
