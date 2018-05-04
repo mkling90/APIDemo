@@ -29,4 +29,20 @@ namespace Library.API.Models
         public ICollection<BookForCreationDto> Books { get; set; }
             = new List<BookForCreationDto>();
     }
+    //new dto after versioning
+    public class AuthorForCreationWithDateOfDeathDto
+    {
+        public String FirstName { get; set; }
+
+        public String LastName { get; set; }
+
+        public DateTimeOffset DateOfBirth { get; set; }
+
+        public DateTimeOffset DateOfDeath { get; set; }
+
+        public String Genre { get; set; }
+
+        public ICollection<BookForCreationDto> Books { get; set; }
+            = new List<BookForCreationDto>();
+    }
 }

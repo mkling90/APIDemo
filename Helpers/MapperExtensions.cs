@@ -38,6 +38,23 @@ namespace Library.API.Helpers
             return author;
         }
 
+        public static Author ConvertToAuthorEntity(this AuthorForCreationWithDateOfDeathDto inputAuthor)
+        {
+            Author author = new Author()
+            {
+                FirstName = inputAuthor.FirstName,
+                LastName = inputAuthor.LastName,
+                DateOfBirth = inputAuthor.DateOfBirth,
+                DateOfDeath = inputAuthor.DateOfDeath,
+                Genre = inputAuthor.Genre
+            };
+            if (inputAuthor.Books != null)
+            {
+                author.Books = inputAuthor.Books.ConvertToBookEntityList();
+            }
+            return author;
+        }
+
         public static IEnumerable<Author> ConvertToAuthorList(this IEnumerable<AuthorForCreationDto> inputAuthorDtoList)
         {
             List<Author> authorList = new List<Author>();

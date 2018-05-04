@@ -36,7 +36,8 @@ namespace Library.API.Controllers
         }         
 
         [HttpGet(Name = "GetAuthors")]
-        public IActionResult GetAuthors(AuthorsResourceParameters authorsResourceParameters)  //will look for properties within the class to map to
+        public IActionResult GetAuthors(AuthorsResourceParameters authorsResourceParameters,  //will look for properties within the class to map to
+            [FromHeader(Name = "Accept")] string mediaType)  //need to get the accept header to determine if hateoas links should be returned or not  
         {
             //validate order by mappings
             if (!_propertyMappingService.ValidMappingExistsFor<AuthorDto, Author>(authorsResourceParameters.OrderBy))
@@ -52,7 +53,7 @@ namespace Library.API.Controllers
 
             //check if there is a previous or next page...if so create the link
             //add all parameters (searching, filtering, etc..  to the create uri method as well)
-            //can be rmeoved after adding these links to the hateoas links
+            //can be removed after adding these links to the hateoas links
             /*
             var previousPageLinkUri = authorsFromRepo.HasPrevious ?
                     CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.PreviousPage) : null;
@@ -78,31 +79,41 @@ namespace Library.API.Controllers
             var authors = authorsFromRepo.ConvertToAuthorDtoList();
 
             //create links
-            var links = CreateLinksForAuthors(authorsResourceParameters, authorsFromRepo.HasNext, authorsFromRepo.HasPrevious);
+            //need to configure a formatter for the custom media type though
+            if (mediaType == "application/vnd.mike.hateoas+json")  //check media type to decide if we should return hateoas links or not
+            {
+                var links = CreateLinksForAuthors(authorsResourceParameters, authorsFromRepo.HasNext, authorsFromRepo.HasPrevious);
 
-            //shape the data
-            var shapedAuthors = authors.ShapeData(authorsResourceParameters.Fields);
-            //add individual links to each object
-            var shapedAuthorsWithLinks = shapedAuthors.Select(a =>
-                {
+                //shape the data
+                var shapedAuthors = authors.ShapeData(authorsResourceParameters.Fields);
+                //add individual links to each object
+                var shapedAuthorsWithLinks = shapedAuthors.Select(a =>
+                    {
                     //each shaped author gets its specific links
                     var authorDict = a as IDictionary<string, object>;
-                    var authorLinks = CreateLinksForAuthor((Guid)authorDict["Id"], authorsResourceParameters.Fields);
-                    authorDict.Add("links", authorLinks);
-                    return authorDict;
-            });
-            //create wrapper to return links and collection
-            var linkedCollectionResource = new
+                        var authorLinks = CreateLinksForAuthor((Guid)authorDict["Id"], authorsResourceParameters.Fields);
+                        authorDict.Add("links", authorLinks);
+                        return authorDict;
+                    });
+                //create wrapper to return links and collection
+                var linkedCollectionResource = new
+                {
+                    value = shapedAuthorsWithLinks,
+                    links = links
+                };
+                return Ok(linkedCollectionResource);
+            }
+            else
             {
-                value = shapedAuthorsWithLinks,
-                links = links
-            };
-
+                //non hateoas code
+                //in prod code should also change the pagination data to include the next/previous, since that was changed to be in the hateoas links section
+                return Ok(authors.ShapeData(authorsResourceParameters.Fields));
+            }
             //return Ok(authors);
             //add data shaping to avoid unnecessary fields
             //return Ok(authors.ShapeData(authorsResourceParameters.Fields));
             //after links
-            return Ok(linkedCollectionResource);
+  
         }
 
         [HttpGet("{id}", Name = "GetAuthor")]
@@ -132,7 +143,8 @@ namespace Library.API.Controllers
             return Ok(linkedResourceToReturn);  //after hateoas
         }
 
-        [HttpPost()]
+        [HttpPost(Name = "CreateAuthor")]
+        [RequestHeaderMatchesMediaType("Content-type", new[] { "application/vnd.mike.author.full+json" })]  //with versioning media types
         public IActionResult CreateAuthor([FromBody] AuthorForCreationDto author)
         {
             if (author == null)
@@ -158,6 +170,33 @@ namespace Library.API.Controllers
             return CreatedAtRoute("GetAuthor", new { id = linkedResourceToReturn["Id"] }, linkedResourceToReturn);
         }
 
+
+        [HttpPost(Name = "CreateAuthorWithDateOfDeath")]
+        [RequestHeaderMatchesMediaType("Content-type", new[] { "application/vnd.mike.author.authorwithdateofdeath+json" })]  //action constraint, selection action based on content type
+        public IActionResult CreateAuthorWithDateOfDeath([FromBody] AuthorForCreationWithDateOfDeathDto author)
+        {
+            if (author == null)
+                return BadRequest();
+
+            var authorEntity = author.ConvertToAuthorEntity();
+            _libraryRepository.AddAuthor(authorEntity);
+            if (!_libraryRepository.Save())
+            {
+                throw new Exception();  //with global exception handling, we can throw exception
+                //return StatusCode(500, "problem");
+            }
+            var authorToReturn = authorEntity.ConvertToAuthorDto();
+            var links = CreateLinksForAuthor(authorToReturn.Id, null);
+
+            //add links to post author, convert authordto to expandoobject
+            var linkedResourceToReturn = authorToReturn.ShapeData() as IDictionary<string, object>;
+            linkedResourceToReturn.Add("links", links);
+
+            //need a name on the get method call to use it here
+            //return CreatedAtRoute("GetAuthor", new { id = authorToReturn.Id }, authorToReturn); 
+            //with links
+            return CreatedAtRoute("GetAuthor", new { id = linkedResourceToReturn["Id"] }, linkedResourceToReturn);
+        }
         [HttpPost("{id}")]
         public IActionResult BlockAuthorCreation(Guid id)
         {

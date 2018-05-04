@@ -40,6 +40,20 @@ namespace Library.API
                 setupAction.ReturnHttpNotAcceptable = true;
                 setupAction.OutputFormatters.Add(new XmlDataContractSerializerOutputFormatter());
                 setupAction.InputFormatters.Add(new XmlDataContractSerializerInputFormatter());
+
+                //support custom media type
+                var jsonOutputFormatter = setupAction.OutputFormatters.OfType<JsonOutputFormatter>().FirstOrDefault();
+                if(jsonOutputFormatter != null)
+                {
+                    jsonOutputFormatter.SupportedMediaTypes.Add("application/vnd.mike.hateoas+json");
+                }
+                var jsonInputFormatter = setupAction.InputFormatters.OfType<JsonInputFormatter>().FirstOrDefault();
+                if(jsonInputFormatter != null)
+                {
+                    jsonInputFormatter.SupportedMediaTypes.Add("application/vnd.mike.author.full+json");
+                    jsonInputFormatter.SupportedMediaTypes.Add("application/vnd.mike.author.authorwithdateofdeath+json");
+                }
+
             })
             .AddJsonOptions(options =>
                 { options.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver(); }
