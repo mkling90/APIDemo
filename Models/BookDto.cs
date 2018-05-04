@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 
 namespace Library.API.Models
 {
-    public class BookDto
+    //inherit the linked resource dto so we can add the collection of links
+    public class BookDto : LinkedResourceBaseDto
     {
         // Data Annotations are the default validation rules
         

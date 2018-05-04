@@ -16,14 +16,18 @@ namespace Library.API.Controllers
     {
         private ILibraryRepository _libraryRepository;
         ILogger<BooksController> _logger;
+        private IUrlHelper _urlHelper; // to build links for hateoas
 
-        public BooksController(ILibraryRepository libraryRepository, ILogger<BooksController> logger)
+        public BooksController(ILibraryRepository libraryRepository, 
+            ILogger<BooksController> logger,
+            IUrlHelper urlHelper)
         {
             _logger = logger;
             _libraryRepository = libraryRepository;
+            _urlHelper = urlHelper;
         }
 
-        [HttpGet()]
+        [HttpGet(Name = "GetBooks")]
         public IActionResult GetBooksForAuthor(Guid authorId)
         {
             if (!_libraryRepository.AuthorExists(authorId))
@@ -32,7 +36,16 @@ namespace Library.API.Controllers
             var booksForAuthorFromRepo = _libraryRepository.GetBooksForAuthor(authorId);
             var booksForAuthor = booksForAuthorFromRepo.ConvertToBookDtoList();
 
-            return Ok(booksForAuthor);
+            booksForAuthor = booksForAuthor.Select(book =>
+                {
+                    book = CreateLinksForBook(book);
+                    return book;
+                });
+            var wrapper = new LinkedCollectionResourceWrapperDto<BookDto>(booksForAuthor);
+
+            //return Ok(booksForAuthor);
+            //need links on both the individual books, as well as the links
+            return Ok(CreateLinksForBooks(wrapper));
         }
 
         [HttpGet("{id}", Name ="GetBook")]
@@ -45,10 +58,11 @@ namespace Library.API.Controllers
             if (book == null)
                 return NotFound();
             var retBook = book.ConvertToBookDto();
-            return Ok(retBook);
+            //return Ok(retBook);
+            return Ok(CreateLinksForBook(retBook)); // with the hateoas links
         }
 
-        [HttpPost()]
+        [HttpPost(Name = "CreateBookForAuthor")]
         public IActionResult CreateBookForAuthor(Guid authorId, [FromBody] BookForCreationDto book)
         {
             if (book == null)
@@ -69,10 +83,11 @@ namespace Library.API.Controllers
             _libraryRepository.AddBookForAuthor(authorId, bookEntity);
             _libraryRepository.Save();
             var bookToReturn = bookEntity.ConvertToBookDto();
-            return CreatedAtRoute("GetBook", new {authorId = bookToReturn.AuthorId, id = bookToReturn.Id }, bookToReturn);
+            //return CreatedAtRoute("GetBook", new {authorId = bookToReturn.AuthorId, id = bookToReturn.Id }, bookToReturn);
+            return CreatedAtRoute("GetBook", new { authorId = bookToReturn.AuthorId, id = bookToReturn.Id }, CreateLinksForBook(bookToReturn));
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}", Name = "DeleteBook")]
         public IActionResult DeleteBookForAuthor(Guid authorId, Guid id)
         {
             if (!_libraryRepository.AuthorExists(authorId))
@@ -93,7 +108,7 @@ namespace Library.API.Controllers
 
         //Use 'Put' for a full update, fields not set go to default values
         // Note, put is not used often, 'Patch' methods typically used so consumer doesn't have to send over all the fields
-        [HttpPut("{id}")]
+        [HttpPut("{id}", Name = "UpdateBook")]
         public IActionResult UpdateBookForAuthor(Guid authorId, Guid id, [FromBody] BookForUpdateDto book )
         {
             if (book == null)
@@ -132,7 +147,7 @@ namespace Library.API.Controllers
         }
 
         //Use patch for partial updates
-        [HttpPatch("{id}")]
+        [HttpPatch("{id}", Name = "PartiallyUpdateBook")]
         public IActionResult PartiallyUpdateBookForAuthor(Guid authorId, Guid id,
             [FromBody] JsonPatchDocument<BookForUpdateDto> patchDoc)
         {
@@ -173,6 +188,50 @@ namespace Library.API.Controllers
             if (!_libraryRepository.Save())
                 throw new Exception("Error updating book");  //api wide exception handling will handle exception
             return NoContent();  //could return OK() also
+        }
+
+        //take in a bookdto, and add the links to it
+        private BookDto CreateLinksForBook(BookDto book)
+        {
+            //custom logic to decide what links should be included.
+            //first should be link to itself.  other links should be for all the functionality the api exposes
+            // here, when returning a single book, the api allows deleting, updating, and partial patching
+            //all the links  must have names!
+
+            //link to itself
+            book.Links.Add(new LinkDto(
+                _urlHelper.Link("GetBook", new { id = book.Id } ),  //href
+                "self",  //rel
+                "GET"));  //method
+
+            book.Links.Add(new LinkDto(
+                _urlHelper.Link("DeleteBook", new { id = book.Id }),  //href
+                "delete_book",  //rel
+                "DELETE"));  //method
+
+            book.Links.Add(new LinkDto(
+                _urlHelper.Link("UpdateBook", new { id = book.Id }),  //href
+                "update_book",  //rel
+                "PUT"));  //method
+
+            book.Links.Add(new LinkDto(
+                _urlHelper.Link("PartiallyUpdateBook", new { id = book.Id }),  //href
+                "partially_update_book",  //rel
+                "PATCH"));  //method
+
+            return book;
+        }
+
+        private LinkedCollectionResourceWrapperDto<BookDto> CreateLinksForBooks(LinkedCollectionResourceWrapperDto<BookDto> booksWrapper)
+        {
+            //Same concept, add links to itself, plus anything else you do to collection
+            //link to itself
+            booksWrapper.Links.Add(new LinkDto(
+                _urlHelper.Link("GetBooks", new { }),  //href
+                "self",  //rel
+                "GET"));  //method
+
+            return booksWrapper;
         }
     }
 }

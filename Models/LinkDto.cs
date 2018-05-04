@@ -1,0 +1,22 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace Library.API.Models
+{
+    // Base class for DTO's to send the hypermedia links to support HATEOAS
+    public class LinkDto
+    {
+        public string Href { get; private set; }
+        public string Rel { get; private set; }
+        public string Method { get; private set; }
+
+        public LinkDto(string href, string rel, string method)
+        {
+            Href = href;
+            Rel = rel;
+            Method = method;
+        }
+    }
+}

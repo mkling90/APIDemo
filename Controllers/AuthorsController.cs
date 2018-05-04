@@ -16,7 +16,7 @@ namespace Library.API.Controllers
     // parameters passed through query string
 
     //Additional options:  expanding child resources, complex filters - don't need to implement options unless needed though
-
+    // Typically should return links either statically OR dynamically, but not both.  Example API includes both for reference.
     [Route("api/authors")]
     public class AuthorsController : Controller
     {
@@ -52,21 +52,23 @@ namespace Library.API.Controllers
 
             //check if there is a previous or next page...if so create the link
             //add all parameters (searching, filtering, etc..  to the create uri method as well)
+            //can be rmeoved after adding these links to the hateoas links
+            /*
             var previousPageLinkUri = authorsFromRepo.HasPrevious ?
                     CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.PreviousPage) : null;
 
             var nextPageLinkUri = authorsFromRepo.HasNext ?
                     CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.NextPage) : null;
-
+            */
             //Create the paging metadata
             var paginationMetadata = new
             {
                 totalCount = authorsFromRepo.TotalCount,
                 pageSize = authorsFromRepo.PageSize,
                 currentPage = authorsFromRepo.CurrentPage,
-                totalPages = authorsFromRepo.TotalPages,
-                previousPageLink = previousPageLinkUri,
-                nextPageLink = nextPageLinkUri
+                totalPages = authorsFromRepo.TotalPages
+                //previousPageLink = previousPageLinkUri,
+                //nextPageLink = nextPageLinkUri
             };
 
             //add metadata as custom header to response
@@ -74,9 +76,33 @@ namespace Library.API.Controllers
                 Newtonsoft.Json.JsonConvert.SerializeObject(paginationMetadata));
 
             var authors = authorsFromRepo.ConvertToAuthorDtoList();
+
+            //create links
+            var links = CreateLinksForAuthors(authorsResourceParameters, authorsFromRepo.HasNext, authorsFromRepo.HasPrevious);
+
+            //shape the data
+            var shapedAuthors = authors.ShapeData(authorsResourceParameters.Fields);
+            //add individual links to each object
+            var shapedAuthorsWithLinks = shapedAuthors.Select(a =>
+                {
+                    //each shaped author gets its specific links
+                    var authorDict = a as IDictionary<string, object>;
+                    var authorLinks = CreateLinksForAuthor((Guid)authorDict["Id"], authorsResourceParameters.Fields);
+                    authorDict.Add("links", authorLinks);
+                    return authorDict;
+            });
+            //create wrapper to return links and collection
+            var linkedCollectionResource = new
+            {
+                value = shapedAuthorsWithLinks,
+                links = links
+            };
+
             //return Ok(authors);
             //add data shaping to avoid unnecessary fields
-            return Ok(authors.ShapeData(authorsResourceParameters.Fields));
+            //return Ok(authors.ShapeData(authorsResourceParameters.Fields));
+            //after links
+            return Ok(linkedCollectionResource);
         }
 
         [HttpGet("{id}", Name = "GetAuthor")]
@@ -94,9 +120,16 @@ namespace Library.API.Controllers
                 return NotFound();
             }
             var author = authorFromRepo.ConvertToAuthorDto();
-            //return Ok(author);
-            return Ok(author.ShapeData(fields));
+            // using links here prevents consumer from omitting the uri, even if you omit the id value, you will get the links
+            var links = CreateLinksForAuthor(id, fields);
+            //to add the links to the dynamic object
+            var linkedResourceToReturn = author.ShapeData(fields)
+                as IDictionary<string, object>;
 
+            linkedResourceToReturn.Add("links", links);
+            //return Ok(author);
+            //return Ok(author.ShapeData(fields));  //after data shaping
+            return Ok(linkedResourceToReturn);  //after hateoas
         }
 
         [HttpPost()]
@@ -113,8 +146,16 @@ namespace Library.API.Controllers
                 //return StatusCode(500, "problem");
             }
             var authorToReturn = authorEntity.ConvertToAuthorDto();
+            var links = CreateLinksForAuthor(authorToReturn.Id, null);
+
+            //add links to post author, convert authordto to expandoobject
+            var linkedResourceToReturn = authorToReturn.ShapeData() as IDictionary<string, object>;
+            linkedResourceToReturn.Add("links", links);
+
             //need a name on the get method call to use it here
-            return CreatedAtRoute("GetAuthor", new { id = authorToReturn.Id }, authorToReturn); 
+            //return CreatedAtRoute("GetAuthor", new { id = authorToReturn.Id }, authorToReturn); 
+            //with links
+            return CreatedAtRoute("GetAuthor", new { id = linkedResourceToReturn["Id"] }, linkedResourceToReturn);
         }
 
         [HttpPost("{id}")]
@@ -126,7 +167,7 @@ namespace Library.API.Controllers
             else return NotFound();
         }
 
-        [HttpDelete("{id}")]
+        [HttpDelete("{id}", Name = "DeleteAuthor")]
         public IActionResult DeleteAuthor(Guid id)
         {
             var authorToDelete = _libraryRepository.GetAuthor(id);
@@ -167,7 +208,7 @@ namespace Library.API.Controllers
                           pageNumber = authorsResourceParameters.PageNumber + 1,
                           pageSize = authorsResourceParameters.PageSize
                       });
-
+                case ResourceUriType.Current:
                 default:
                     return _urlHelper.Link("GetAuthors",
                     new
@@ -180,6 +221,84 @@ namespace Library.API.Controllers
                         pageSize = authorsResourceParameters.PageSize
                     });
             }
+        }
+
+        //For dynamic HATEOAS approach
+        //parameters should match the input parameters of GetAuthor (or whatever method returns the dynamic object
+        private IEnumerable<LinkDto> CreateLinksForAuthor(Guid id, string fields)
+        {
+            //need variable to hold the links
+            var links = new List<LinkDto>();
+
+            //create self link first
+            if(string.IsNullOrWhiteSpace(fields))
+            {
+                links.Add(new LinkDto(
+                _urlHelper.Link("GetAuthor", new {id = id }),  //href
+                "self",  //rel
+                "GET"));  //method
+            }
+            else
+            {
+                links.Add(new LinkDto(
+                _urlHelper.Link("GetAuthor", new { id = id , fields = fields}),  //href
+                "self",  //rel
+                "GET"));  //method
+            }
+
+            //add other operations (delete, etc...)
+            links.Add(new LinkDto(
+                _urlHelper.Link("DeleteAuthor", new { id = id }),  //href
+                "delete_author",  //rel
+                "DELETE"));  //method
+
+            //create book for an author?  
+            //To drive the application state, even though it's in another controller, we can add the functionality to the links here
+            links.Add(new LinkDto(
+                _urlHelper.Link("CreateBookForAuthor", new { authorId = id }),  //href
+                "create_book_for__author",  //rel
+                "POST"));  //method
+
+            //can add other links to help the consumer navigate throught the api
+            links.Add(new LinkDto(
+                _urlHelper.Link("GetBook", new { authorId = id }),  //href
+                "books",  //rel
+                "GET"));  //method
+
+            return links;
+        }
+
+        //helper method for author collection
+        private IEnumerable<LinkDto> CreateLinksForAuthors(AuthorsResourceParameters authorsResourceParameters,
+            bool hasNext, bool hasPrevious)
+        {
+            var links = new List<LinkDto>();
+
+            //already have a help method to create a uri, so should reuse it
+            //self links
+            links.Add(
+                new LinkDto(CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.Current),
+                "self",
+                "GET"));
+            //Previously the header metadata for paging had the next/previous links.  These should go here though.
+            if(hasNext)
+            {
+                links.Add(
+                new LinkDto(CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.NextPage),
+                "nextPage",
+                "GET"));
+            }
+
+            if(hasPrevious)
+            {
+                links.Add(
+                new LinkDto(CreateAuthorsResourceUri(authorsResourceParameters, ResourceUriType.PreviousPage),
+                "previousPage",
+                "GET"));
+            }
+
+
+            return links;
         }
     }
 }

@@ -11,7 +11,7 @@ namespace Library.API.Helpers
     {
         // could reuse this in the list shaper, but reflection is expensive for performance.  If we reused this it would reflect for every object in the list
         public static ExpandoObject ShapeData<TSource>(this TSource source,
-          string fields)
+          string fields = null)
         {
             if (source == null)
             {
