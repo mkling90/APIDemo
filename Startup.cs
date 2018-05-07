@@ -79,6 +79,21 @@ namespace Library.API
             //lightweight, stateless service, so use transient here
             services.AddTransient<IPropertyMappingService, PropertyMappingService>();
             services.AddTransient<ITypeHelperService, TypeHelperService>();
+
+            // Caching (note: using Marvin.Cache.Headers to get ETag support)
+            //services.AddHttpCacheHeaders();
+            //add caching options
+            services.AddHttpCacheHeaders((expirationOptions) =>
+            {
+                expirationOptions.MaxAge = 600; //set expiration options
+            },
+             (validationOptions) =>
+             {
+                 validationOptions.AddMustRevalidate = true; //add validation options 
+             });
+
+            //Adding a cache store
+            services.AddResponseCaching();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -115,6 +130,12 @@ namespace Library.API
             }
 
             libraryContext.EnsureSeedDataForContext();
+
+            // Caching (note: using Marvin.Cache.Headers to get ETag support)
+            //Order important, add before the mvc middleware, it may need to stop requests heading to the mvc middleware
+
+            app.UseResponseCaching(); // add cache store, should be before header generation
+            app.UseHttpCacheHeaders(); //     <-  Generates the headers, but isn't the actual cache component.  ETag should work if client passes 'If-None-match' header
 
             app.UseMvc(); 
         }
