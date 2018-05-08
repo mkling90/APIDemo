@@ -36,6 +36,7 @@ namespace Library.API.Controllers
         }         
 
         [HttpGet(Name = "GetAuthors")]
+        [HttpHead()] //Head -> like get, but not return a body.  lets consumers test out validity, accessibility, etc..
         public IActionResult GetAuthors(AuthorsResourceParameters authorsResourceParameters,  //will look for properties within the class to map to
             [FromHeader(Name = "Accept")] string mediaType)  //need to get the accept header to determine if hateoas links should be returned or not  
         {
@@ -218,6 +219,14 @@ namespace Library.API.Controllers
                 throw new Exception("error deleting");
             }
             return NoContent();
+        }
+
+        //Options -> to allow consumers to discover what they do on api
+        [HttpOptions()]
+        public IActionResult GetAuthorsOptions()
+        {
+            Response.Headers.Add("Allow", "GET,OPTIONS,POST"); //<- list out the allowed methods
+            return Ok();
         }
 
         private string CreateAuthorsResourceUri(AuthorsResourceParameters authorsResourceParameters,

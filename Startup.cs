@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Newtonsoft.Json.Serialization;
+using AspNetCoreRateLimit;
 
 namespace Library.API
 {
@@ -94,6 +95,34 @@ namespace Library.API
 
             //Adding a cache store
             services.AddResponseCaching();
+
+            //rate Limiting  (nuget AspNetCoreRateLimit)
+            //2 choices - rate limiting by ip, and by client
+            services.AddMemoryCache();
+
+            services.Configure<IpRateLimitOptions>((opt) =>
+            {
+                //would be in config files in actual code
+                opt.GeneralRules = new List<RateLimitRule>()
+                {
+                    new RateLimitRule()
+                    {
+                        Endpoint="*",
+                        Limit = 10,
+                        Period="5m"
+                    },  // limit any client to 10 requests for each 5 minutes
+                    new RateLimitRule()
+                    {
+                        Endpoint="*",
+                        Limit = 2,
+                        Period="10s"
+                    }  // also limit any client to 2 requests for each 10 seconds
+                };
+            });
+            //need both a ip policy store and rate limit counter store
+            //need singleton so they can be stored acrosss requests
+            services.AddSingleton<IRateLimitCounterStore, MemoryCacheRateLimitCounterStore>();
+            services.AddSingleton<IIpPolicyStore, MemoryCacheIpPolicyStore>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -130,6 +159,9 @@ namespace Library.API
             }
 
             libraryContext.EnsureSeedDataForContext();
+
+            //rate limiting goes before any other request limiting
+            app.UseIpRateLimiting();
 
             // Caching (note: using Marvin.Cache.Headers to get ETag support)
             //Order important, add before the mvc middleware, it may need to stop requests heading to the mvc middleware
